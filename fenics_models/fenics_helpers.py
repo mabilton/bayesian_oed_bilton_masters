@@ -1,12 +1,12 @@
 import dolfinx
-import ufl
-from mpi4py import MPI
-from petsc4py import PETSc
 import numpy as np
 from math import sin, cos, pi
 import os
 import itertools
-# import pygmsh
+import ufl
+from mpi4py import MPI
+from petsc4py import PETSc
+import dolfinx
 
 def create_param_combos(**kwargs):
     keys = kwargs.keys()
@@ -21,7 +21,7 @@ def create_param_combos(**kwargs):
 #
 
 def create_cuboidal_mesh(L, W, NL, NW):
-    mesh = dolfinx.BoxMesh(MPI.COMM_WORLD,[[0.0, 0.0, 0.0], [L, W, W]], [NL, NW, NW], dolfinx.cpp.mesh.CellType.hexahedron)
+    mesh = dolfinx.mesh.create_box(MPI.COMM_WORLD, [[0.0, 0.0, 0.0], [L, W, W]], [NL, NW, NW], dolfinx.cpp.mesh.CellType.hexahedron)
     return mesh
 
 def create_sliced_beam_mesh(W_1, W_2, L_1, L_2, mesh_size, num_layers):
@@ -54,26 +54,28 @@ def create_sliced_beam_mesh(W_1, W_2, L_1, L_2, mesh_size, num_layers):
 #
 
 # elem_order=2, rtol=1e-3, atol=1e-3, max_it=10
-def simulate_neohookean_beam(mesh, beam_angle, C_1, density, g, kappa, num_load_steps, elem_order, rtol, atol, max_iter, **ignored_kwargs):
-    # Create function space:
-    V = dolfinx.VectorFunctionSpace(mesh, ("CG", elem_order))
-    bcs = _create_clamped_bcs(mesh, V)
-    F, u, B = _create_neohookean_constitutive_eqn(C_1, kappa, mesh, V)
+def simulate_neohookean_beam(mesh, beam_angle, C_1, density, g, kappa, elem_order, rtol, atol, max_iter, num_load_steps=None, u_guess=None, **ignored_kwargs):
     _clear_fenics_cache()
+    # Create function space:
+    V = dolfinx.fem.VectorFunctionSpace(mesh, ("CG", elem_order))
+    bcs = _create_clamped_bcs(mesh, V)
+    u = dolfinx.fem.Function(V)
+    B = dolfinx.fem.Constant(mesh, [0.,0.,0.])
+    F = _create_neohookean_constitutive_eqn(C_1, kappa, mesh, V, u, B)
     # Define problem:
-    problem = dolfinx.fem.NonlinearProblem(F, u, bcs)
-    solver = _create_nonlinear_solver(problem, rtol, atol, max_iter)
+    solver = _create_nonlinear_solver(F, u, V, bcs, rtol, atol, max_iter)
     f = _create_load_vector(beam_angle, density, g)
-    u = _perform_load_stepping(solver, u, B, f, num_load_steps)
+    u = _solve_nonlinear_system(solver, u, B, f, num_load_steps, u_guess)
     return u
 
-def simulate_linear_beam(mesh, beam_angle, C_1, lambda_, density, g, elem_order, rtol, atol, **ignored_kwargs):
-    _clear_model_cache()
-    V = dolfinx.VectorFunctionSpace(mesh, ("CG", elem_order))
+def simulate_linear_beam(mesh, beam_angle, C_1, kappa, density, g, elem_order, rtol, atol, **ignored_kwargs):
+    _clear_fenics_cache()
+    V = dolfinx.fem.VectorFunctionSpace(mesh, ("CG", elem_order))
     bcs = _create_clamped_bcs(mesh, V)
     mu = 2*C_1
+    lambda_ = 2*kappa
     f = _create_load_vector(beam_angle, density, g)
-    problem = _create_linear_beam_problem(mesh, mu, lambda_, f, V, atol, rtol)
+    problem = _create_linear_beam_problem(mesh, mu, lambda_, f, V, bcs, atol, rtol)
     u = problem.solve()
     return u
 
@@ -81,25 +83,37 @@ def simulate_linear_beam(mesh, beam_angle, C_1, lambda_, density, g, elem_order,
 #   Mesh Deformation Post-Processing Methods
 #
 
+# How to evaluate solution at specific (potentially non-nodel) point: https://jorgensd.github.io/dolfinx-tutorial/chapter1/membrane_code.html
 def compute_end_displacement(u, mesh, W, L):
-    u_vals = u.compute_point_values().real
-    idx = np.isclose(mesh.geometry.x, [L, W, W])
-    idx = np.where(np.all(idx, axis=1))
-    u_vals = u_vals[idx]
-    disp = np.sum(u_vals**2, axis=1)**(1/2)
+    end_point = np.array([[L, W, W]])
+    points_on_processors, cells = _get_mesh_cells_at_query_points(end_point, mesh)
+    u_end = u.eval(points_on_processors, cells)
+    disp = np.sum(u_end**2)**(1/2)
     return disp.item()
+
+def _get_mesh_cells_at_query_points(query_points, mesh):
+    bb_tree = dolfinx.geometry.BoundingBoxTree(mesh, mesh.topology.dim)
+    cells, points_on_processors = [], []
+    # Find cells whose bounding-box collide with the the points
+    cell_candidates = dolfinx.geometry.compute_collisions(bb_tree, query_points)
+    # Choose one of the cells that contains the point
+    colliding_cells = dolfinx.geometry.compute_colliding_cells(mesh, cell_candidates, query_points)
+    for i, point in enumerate(query_points):
+        if len(colliding_cells.links(i))>0:
+            points_on_processors.append(point)
+            cells.append(colliding_cells.links(i)[0])
+    return points_on_processors, cells
 
 def compute_pre_and_postdeformation_volume(u, mesh, quad_order=4):
     ndim = mesh.geometry.x.shape[1]
     I = ufl.Identity(ndim)
-    dx = ufl.Measure("dx", domain=mesh, metadata={"quadrature_degree": quad_order})
-    const_funspace = dolfinx.VectorFunctionSpace(mesh, ("DG", 0), dim=1)
-    const_fun = dolfinx.Function(const_funspace)
+    dx = ufl.Measure("dx", domain=mesh, metadata={"quadrature_degree": 4})
+    const_funspace = dolfinx.fem.VectorFunctionSpace(mesh, ("DG", 0), dim=1)
+    const_fun = dolfinx.fem.Function(const_funspace)
     const_fun.vector[:] = np.ones(const_fun.vector[:].shape)
-    ufl.inner(const_fun,const_fun)
-    vol_before = dolfinx.fem.assemble.assemble_scalar(ufl.inner(const_fun,const_fun)*dx)
+    vol_before = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(const_fun,const_fun)*dx))
     F = I + ufl.grad(u)
-    vol_after = dolfinx.fem.assemble.assemble_scalar(ufl.det(F)*dx)
+    vol_after = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.det(F)*dx))
     return [vol_before, vol_after]
 
 #
@@ -113,25 +127,24 @@ def _clear_fenics_cache(cache_dir='/root/.cache/fenics'):
 def _create_clamped_bcs(mesh, V):
     fixed = lambda x: np.isclose(x[0], 0)
     fixed_facets = dolfinx.mesh.locate_entities_boundary(mesh, mesh.topology.dim - 1, fixed)
-    facet_tag = dolfinx.MeshTags(mesh, mesh.topology.dim-1, fixed_facets, 1)
-    u_bc = dolfinx.Function(V)
+    facet_tag = dolfinx.mesh.meshtags(mesh, mesh.topology.dim-1, fixed_facets, 1)
+    u_bc = dolfinx.fem.Function(V)
     with u_bc.vector.localForm() as loc:
         loc.set(0)
     left_dofs = dolfinx.fem.locate_dofs_topological(V, facet_tag.dim, facet_tag.indices[facet_tag.values==1])
-    bcs = [dolfinx.DirichletBC(u_bc, left_dofs)]
+    bcs = [dolfinx.fem.dirichletbc(u_bc, left_dofs)]
     return bcs   
 
-def _create_nonlinear_solver(problem, rtol, atol, max_iter):
-    solver = dolfinx.NewtonSolver(MPI.COMM_WORLD, problem)
+def _create_nonlinear_solver(F, u, V, bcs, rtol, atol, max_iter):
+    problem = dolfinx.fem.petsc.NonlinearProblem(F, u, bcs)
+    solver = dolfinx.nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
     solver.rtol = rtol
     solver.atol = atol
     solver.max_it = max_iter
     return solver
-
-def _create_neohookean_constitutive_eqn(C_1, kappa, mesh, V, quad_degree=4):
-    B = dolfinx.Constant(mesh, (0,0,0))
+        
+def _create_neohookean_constitutive_eqn(C_1, kappa, mesh, V, u, B, quad_degree=4):
     v = ufl.TestFunction(V)
-    u = dolfinx.Function(V)
     d = len(u)
     I = ufl.variable(ufl.Identity(d))
     F = ufl.variable(I + ufl.grad(u))
@@ -144,23 +157,32 @@ def _create_neohookean_constitutive_eqn(C_1, kappa, mesh, V, quad_degree=4):
     P = ufl.diff(psi, F)
     metadata = {"quadrature_degree": 4}
     dx = ufl.Measure("dx", metadata=metadata)
-    F = ufl.inner(ufl.grad(v), P)*dx - ufl.inner(v, B)*dx
-    return F, u, B
+    Pi = ufl.inner(ufl.grad(v), P)*dx - ufl.inner(v, B)*dx
+    return Pi
 
-def _perform_load_stepping(solver, u, B, f, num_load_steps):
-    for step_i in range(num_load_steps):
-        print(step_i)
-        for j, f_j in enumerate(f):
-            B.value[j] = ((step_i+1)/num_load_steps)*f_j
+def _solve_nonlinear_system(solver, u, B, f, num_load_steps, u_guess):
+    if (num_load_steps is None) and (u_guess is None):
+        raise ValueError('Must specify either number of load steps of an initial guess for u.')
+    if u_guess is not None:
+        u.x.array[:] = u_guess.x.array[:]
         num_its, converged = solver.solve(u)
         if not converged:
-            raise ValueError(f'Load step {step_i+1}/{num_load_steps} failed to converge.')
-        u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            raise ValueError(f'Failed to converge.')
+    # Load stepping
+    else:
+        for step_i in range(num_load_steps):
+            print(f'Performing load step {step_i+1}/{num_load_steps}...')
+            for j, f_j in enumerate(f):
+                B.value[j] = ((step_i+1)/num_load_steps)*f_j
+            num_its, converged = solver.solve(u)
+            if not converged:
+                raise ValueError(f'Load step {step_i+1} failed to converge.')
+            u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
     return u
 
 # "ksp_atol":1e-3, "ksp_rtol":1e-3
-def _create_linear_beam_problem(mesh, mu, lambda_, f, V,  atol, rtol):
-    u_D = dolfinx.Function(V)
+def _create_linear_beam_problem(mesh, mu, lambda_, f, V, bc, atol, rtol):
+    u_D = dolfinx.fem.Function(V)
     with u_D.vector.localForm() as loc:
         loc.set(0)
     u = ufl.TrialFunction(V)
@@ -168,9 +190,9 @@ def _create_linear_beam_problem(mesh, mu, lambda_, f, V,  atol, rtol):
     epsilon = lambda u: ufl.sym(ufl.grad(u))
     sigma = lambda u: lambda_ * ufl.nabla_div(u) * ufl.Identity(u.geometric_dimension()) + 2*mu*epsilon(u)
     a = ufl.inner(sigma(u), epsilon(v)) * ufl.dx
-    f_const = dolfinx.Constant(mesh, (f[0], f[1], f[2]))
+    f_const = dolfinx.fem.Constant(mesh, f)
     L = ufl.dot(f_const, v) * ufl.dx 
-    problem = dolfinx.fem.LinearProblem(a, L, bcs=[bc], petsc_options={"ksp_atol":atol, "ksp_rtol":rtol, "ksp_type": "preonly", "pc_type": "lu"})
+    problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=bc, petsc_options={"ksp_atol":atol, "ksp_rtol":rtol, "ksp_type": "preonly", "pc_type": "lu"})
     return problem
 
 def _create_load_vector(beam_angle, density, g, g_dir=(1,0,0)):
