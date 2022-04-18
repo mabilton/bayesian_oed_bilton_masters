@@ -8,6 +8,11 @@ from mpi4py import MPI
 from petsc4py import PETSc
 import dolfinx
 
+try:   
+    import pyvista
+except ImportError:
+    print('Warning: Unable to import Pyvista, which is required to run Notebook [2]')
+    
 def create_param_combos(**kwargs):
     keys = kwargs.keys()
     param_combos = []
@@ -15,6 +20,42 @@ def create_param_combos(**kwargs):
         param_dict = dict(zip(keys, bundle))
         param_combos.append(param_dict)
     return param_combos
+
+#
+#   Visualisation Methods
+#
+
+def plot_deformation(u, mesh, beam_angle, cam_pos='xz', window_size=(960,480), rot_x=None, 
+                     sargs=None, clim=None, n_labels=5, label_decimals=0, zoom=1, deform_factor=1):
+    
+    if sargs is None:
+        sargs = dict(label_font_size=16,
+                     shadow=True,
+                     n_labels=n_labels,
+                     fmt=f"%.{label_decimals}f",
+                     font_family="arial")
+    
+    # Create VTK mesh:
+    V = dolfinx.fem.FunctionSpace(mesh, ("CG", 1))
+    grid = pyvista.UnstructuredGrid(*dolfinx.plot.create_vtk_mesh(V))
+    
+    # Interpolate deformations at nodes:
+    points_on_processors, cells = _get_mesh_cells_at_query_points(grid.points, mesh)
+    u_def = u.eval(points_on_processors, cells)
+    grid.point_data["Deformation / mm"] = u_def
+    
+    pyvista.start_xvfb()
+    p = pyvista.Plotter()
+    # Show undeformed mesh as wireframe:
+    actor_0 = p.add_mesh(grid, style="wireframe", color="k")
+    # Plot deformed mesh:
+    warped = grid.warp_by_vector("Deformation / mm", factor=deform_factor)
+    actor_1 = p.add_mesh(warped, clim=clim, scalar_bar_args=sargs)
+    p.show_axes()
+    p.camera_position = cam_pos
+    p.camera.roll += beam_angle - 90
+    p.camera.zoom(zoom)
+    return p
 
 #
 #   Mesh Creation Methods
@@ -53,7 +94,6 @@ def create_sliced_beam_mesh(W_1, W_2, L_1, L_2, mesh_size, num_layers):
 #   Beam Simulation Methods
 #
 
-# elem_order=2, rtol=1e-3, atol=1e-3, max_it=10
 def simulate_neohookean_beam(mesh, beam_angle, C_1, density, g, kappa, elem_order, rtol, atol, max_iter, num_load_steps=None, u_guess=None, **ignored_kwargs):
     _clear_fenics_cache()
     # Create function space:
@@ -180,7 +220,6 @@ def _solve_nonlinear_system(solver, u, B, f, num_load_steps, u_guess):
             u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
     return u
 
-# "ksp_atol":1e-3, "ksp_rtol":1e-3
 def _create_linear_beam_problem(mesh, mu, lambda_, f, V, bc, atol, rtol):
     u_D = dolfinx.fem.Function(V)
     with u_D.vector.localForm() as loc:
@@ -194,6 +233,10 @@ def _create_linear_beam_problem(mesh, mu, lambda_, f, V, bc, atol, rtol):
     L = ufl.dot(f_const, v) * ufl.dx 
     problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=bc, petsc_options={"ksp_atol":atol, "ksp_rtol":rtol, "ksp_type": "preonly", "pc_type": "lu"})
     return problem
+
+#
+#  Loading and Rotation Methods
+#
 
 def _create_load_vector(beam_angle, density, g, g_dir=(1,0,0)):
     f = density*g*np.array(g_dir)
