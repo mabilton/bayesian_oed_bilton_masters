@@ -15,7 +15,7 @@ def plot_gp_heatmap(normC1_grid, normangle_grid, z_vector, z_label, raw_data, nu
     _create_colourbar(im, z_grid, z_label, z_lims, num_z_ticks, z_ticks_dp)
     set_x_and_y_ticks(ax, normC1_grid, normangle_grid, num_C1_ticks, num_angle_ticks, C1_ticks_dp, angle_ticks_dp)
     set_x_and_y_labels(ax, x_label, y_label)
-    plot_points_as_crosses(raw_data, grid_shape=normC1_grid.shape, color='black', normalise_coords=True)
+    plot_gp_points_as_crosses(raw_data, normC1_grid, normangle_grid, color='black')
     clean_up_plot(fig)
     return fig
 
@@ -56,23 +56,19 @@ def set_x_and_y_labels(ax, x_label=None, y_label=None):
         y_label = 'Normalised Beam Angle'
     ax.set_ylabel(y_label)
 
-def plot_points_as_crosses(raw_data, grid_shape, color, normalise_coords=False):
-    num_y_pts, num_x_pts = grid_shape
+def plot_gp_points_as_crosses(raw_data, x_grid, y_grid, color, x_key='C_1', y_key='beam_angle'):
+    num_y_pts, num_x_pts = x_grid.shape
     # Convert fraction positions (i.e. between 0 and 1) to pixel positions:
-    x_plot_pts = _compute_pixel_positions(raw_data['x'][:,0], num_x_pts, normalise_coords)
-    y_plot_pts = _compute_pixel_positions(raw_data['x'][:,1], num_y_pts, normalise_coords)
+    x_plot_pts = _compute_pixel_positions(raw_data[x_key], x_grid, axes_dim=0)
+    y_plot_pts = _compute_pixel_positions(raw_data[y_key], y_grid, axes_dim=1)
     plt.plot(x_plot_pts, y_plot_pts, 'x', color=color, markersize=5)
 
-def _compute_pixel_positions(pt_coords, num_pts, normalise_coords):
-    # Renormalise positions - needed for test data:
-    if normalise_coords:
-        norm_positions = (pt_coords - np.min(pt_coords))/(np.max(pt_coords) - np.min(pt_coords))
-    else:
-        norm_positions = pt_coords
+def _compute_pixel_positions(pts, grid_coords, axes_dim):
+    min_coord = np.min(grid_coords)
+    max_coord = np.max(grid_coords)
+    norm_positions = (pts - min_coord)/(max_coord - min_coord)
+    num_pts = grid_coords.shape[axes_dim]
     return norm_positions*(num_pts-1)
-
-def clean_up_plot(fig):
-    fig.patch.set_facecolor('white')
 
 #
 #   Probability Distribution Plotting
@@ -85,13 +81,43 @@ def plot_distributions(pdf, x, xlabel=None, ylabel=None, pdf_labels=None, alpha=
         ylabel = 'Probability Density'
     fig, ax = plt.subplots()
     for i, pdf_i in enumerate(pdf):
-        sns.lineplot(x=x.squeeze(), y=pdf_i.squeeze(), color=palette[i])
-        ax.fill_between(x.squeeze(), pdf_i.squeeze(), alpha=alpha, color=palette[i])
+        sns.lineplot(x=x.squeeze(), y=pdf_i.squeeze(), color=_palette[i])
+        ax.fill_between(x.squeeze(), pdf_i.squeeze(), alpha=alpha, color=_palette[i])
     plt.legend(pdf_labels, frameon=False)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     clean_up_plot(fig)
 
+def plot_loss_history(loss_history, y_label=None):
+    fig, ax = plt.subplots()
+    sns.lineplot(x=np.arange(len(loss_history)), y=np.array(loss_history))
+    ax.set_xlabel('Iteration Number')
+    if y_label is None:
+        y_label = 'loss'
+    ax.set_ylabel(ylabel)
+    clean_up_plot(fig)
+    return fig
+
+def plot_amortised_phi(amortised_approx, y_lims, d_lims, num_y_pts, num_d_pts, phi_key, num_y_ticks=10, num_d_ticks=10, num_phi_ticks=10, phi_ticks_dp=1, y_ticks_dp=1, d_ticks_dp=1, phi_lims=None):
+    y_grid, d_grid = create_2d_point_grid(y_lims, d_lims, num_y_pts, num_d_pts)
+    y = y_grid.flatten().reshape(-1,1)
+    d = d_grid.flatten().reshape(-1,1)
+    phi = amortised_approx.phi(y,d)[phi_key]
+    phi = phi.reshape(num_y_pts, num_d_pts)
+    fig, ax = plt.subplots()
+    im = plt.imshow(phi, cmap='coolwarm', origin='lower')
+    _create_colourbar(im, phi, phi_key, phi_lims, num_phi_ticks, phi_ticks_dp)
+    set_x_and_y_ticks(ax, y_grid, d_grid, num_y_ticks, num_d_ticks, y_ticks_dp, d_ticks_dp)
+    set_x_and_y_labels(ax, x_label='Normalised Beam Tip Displacement', y_label='Normalised Stiffness')
+    clean_up_plot(fig)
+    return fig
+
+#
+#   General Plotting Methods
+#
+
+def clean_up_plot(fig):
+    fig.patch.set_facecolor('white')
 
 #
 #   Point Grid Methods
