@@ -74,54 +74,78 @@ def _compute_pixel_positions(pts, grid_coords, axes_dim):
 #   Probability Distribution Plotting
 #
 
-def plot_distributions(pdf, x, xlabel=None, ylabel=None, pdf_labels=None, alpha=0.2):
-    for _ in range(2 - pdf.ndim):
-        pdf = pdf[None,:]
+def plot_distributions(pdf_dict, x, xlabel, ylabel=None, alpha=0.2, color_start=0, show_labels=True, legend_loc=None, frameon=True):
     if ylabel is None:
         ylabel = 'Probability Density'
     fig, ax = plt.subplots()
-    for i, pdf_i in enumerate(pdf):
-        sns.lineplot(x=x.squeeze(), y=pdf_i.squeeze(), color=_palette[i])
-        ax.fill_between(x.squeeze(), pdf_i.squeeze(), alpha=alpha, color=_palette[i])
-    plt.legend(pdf_labels, frameon=False)
+    for i, (key, pdf_i) in enumerate(pdf_dict.items()):
+        sns.lineplot(x=x.squeeze(), y=pdf_i.squeeze(), color=_palette[color_start+i], label=key)
+        ax.fill_between(x.squeeze(), pdf_i.squeeze(), alpha=alpha, color=_palette[color_start+i]) 
+    if legend_loc is None:
+        legend_loc = 'upper right' 
+    plt.legend(loc=legend_loc)
+    if not show_labels:
+        ax.get_legend().remove()
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     clean_up_plot(fig)
 
-def plot_loss_history(loss_history, y_label=None):
+def plot_joint_samples(joint_samples, start_colour=0, xlabel=None, ylabel=None):
     fig, ax = plt.subplots()
-    sns.lineplot(x=np.arange(len(loss_history)), y=np.array(loss_history))
-    ax.set_xlabel('Iteration Number')
-    if y_label is None:
-        y_label = 'loss'
+    for i, (key, vals) in enumerate(joint_samples.items()):
+        sns.scatterplot(x=vals['theta'].squeeze(), y=vals['y'].squeeze(), marker='o', 
+                        edgecolor='black', label=key, color=_palette[i+start_colour])
+    if xlabel is None:
+        xlabel = 'Normalised Stiffness'
+    ax.set_xlabel(xlabel)
+    if ylabel is None:
+        ylabel = 'Normalised Beam Tip Displacement'
     ax.set_ylabel(ylabel)
     clean_up_plot(fig)
     return fig
 
-def plot_amortised_phi(amortised_approx, y_lims, d_lims, num_y_pts, num_d_pts, phi_key, num_y_ticks=10, num_d_ticks=10, num_phi_ticks=10, phi_ticks_dp=1, y_ticks_dp=1, d_ticks_dp=1, phi_lims=None):
+def plot_loss_history(loss_history, y_label):
+    fig, ax = plt.subplots()
+    sns.lineplot(x=np.arange(len(loss_history)), y=np.array(loss_history))
+    ax.set_xlabel('Iteration Number')
+    ax.set_ylabel(y_label)
+    clean_up_plot(fig)
+    return fig
+
+def plot_amortised_phi(amortised_approx, y_lims, d_lims, num_y_pts, num_d_pts, phi_key, num_y_ticks=6, num_d_ticks=10, num_phi_ticks=6, phi_ticks_dp=1, y_ticks_dp=1, d_ticks_dp=1, phi_lims=None):
     y_grid, d_grid = create_2d_point_grid(y_lims, d_lims, num_y_pts, num_d_pts)
     y = y_grid.flatten().reshape(-1,1)
     d = d_grid.flatten().reshape(-1,1)
     phi = amortised_approx.phi(y,d)[phi_key]
     phi = phi.reshape(num_y_pts, num_d_pts)
     fig, ax = plt.subplots()
+    if phi_key == 'log_chol_diag':
+        phi = np.exp(phi)
+        phi_key = 'Variance'
     im = plt.imshow(phi, cmap='coolwarm', origin='lower')
+    phi_key = phi_key.capitalize()
     _create_colourbar(im, phi, phi_key, phi_lims, num_phi_ticks, phi_ticks_dp)
     set_x_and_y_ticks(ax, y_grid, d_grid, num_y_ticks, num_d_ticks, y_ticks_dp, d_ticks_dp)
     set_x_and_y_labels(ax, x_label='Normalised Beam Tip Displacement', y_label='Normalised Stiffness')
     clean_up_plot(fig)
     return fig
 
+def plot_ape_landscapes(d, ape_dict):
+    fig, ax = plt.subplots()
+    for i, key, ape_i in enumerate(ape_dict.items()):
+        ape_i = np.array(ape_i)
+        sns.lineplot(x=d.squeeze(), y=ape_i.squeeze(), label=key, color=_palette[i])
+    ax.set_xlabel('Normalised Design')
+    ax.set_ylabel('Average Posterior Entropy')
+    clean_up_plot(fig)
+    return fig
+
 #
-#   General Plotting Methods
+#   General Plotting and Point Grid Methods
 #
 
 def clean_up_plot(fig):
     fig.patch.set_facecolor('white')
-
-#
-#   Point Grid Methods
-#
 
 def create_2d_point_grid(C1_lims, angle_lims, num_C1_pts, num_angle_pts):
     C_1_pts = np.linspace(np.atleast_1d(C1_lims[0]), np.atleast_1d(C1_lims[1]), num_C1_pts)
