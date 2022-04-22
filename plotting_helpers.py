@@ -8,22 +8,22 @@ _palette = sns.color_palette()
 #   Gaussian Process Surrogate Plotting
 #
 
-def plot_gp_heatmap(normC1_grid, normangle_grid, z_vector, z_label, raw_data, num_C1_ticks=6, num_angle_ticks=6, num_z_ticks=6, C1_ticks_dp=1, angle_ticks_dp=1, z_ticks_dp=2, z_lims=None,  x_label=None, y_label=None):   
+def plot_gp_heatmap(normC1_grid, normangle_grid, z_vector, z_label, raw_data, num_C1_ticks=6, num_angle_ticks=5, num_z_ticks=5, C1_ticks_dp=1, angle_ticks_dp=1, z_ticks_dp=2, z_lims=None, x_label=None, y_label=None):   
     z_grid = z_vector.reshape(normC1_grid.shape, order='F')
     fig, ax = plt.subplots()
-    im = plt.imshow(z_grid, cmap='coolwarm', origin='lower')
-    _create_colourbar(im, z_grid, z_label, z_lims, num_z_ticks, z_ticks_dp)
+    z_lims = _create_z_lims(z_lims, z_grid, z_ticks_dp)
+    im = plt.imshow(z_grid, cmap='coolwarm', origin='lower', vmin=z_lims[0], vmax=z_lims[1])
+    create_colourbar(im, z_label, z_lims, num_z_ticks, z_ticks_dp)
     set_x_and_y_ticks(ax, normC1_grid, normangle_grid, num_C1_ticks, num_angle_ticks, C1_ticks_dp, angle_ticks_dp)
     set_x_and_y_labels(ax, x_label, y_label)
     plot_gp_points_as_crosses(raw_data, normC1_grid, normangle_grid, color='black')
     clean_up_plot(fig)
     return fig
 
-def _create_colourbar(im, z_grid, z_label, z_lims, num_z_ticks, z_ticks_dp):
-    z_lims = _create_z_lims(z_lims, z_grid, z_ticks_dp)
+def create_colourbar(im, z_label, z_lims, num_z_ticks, z_ticks_dp):
     ticks = np.linspace(z_lims[0], z_lims[1], num_z_ticks+1)
     ticks = np.around(ticks, decimals=z_ticks_dp)
-    cbar = plt.colorbar(im, ticks=ticks)
+    cbar = plt.colorbar(im, ticks=ticks, **{'format': f'%.{z_ticks_dp}f'})
     cbar.set_label(z_label, rotation=270, labelpad=15)
 
 def _create_z_lims(z_lims, z, ticks_dp):
@@ -50,10 +50,10 @@ def _create_vector_from_grid(grid):
 
 def set_x_and_y_labels(ax, x_label=None, y_label=None):
     if x_label is None:
-        x_label = 'Normalised Stiffness'
+        x_label = 'Normalised Stiffness $C_1$'
     ax.set_xlabel(x_label)
     if y_label is None:
-        y_label = 'Normalised Beam Angle'
+        y_label = 'Normalised Beam Angle $\omega$'
     ax.set_ylabel(y_label)
 
 def plot_gp_points_as_crosses(raw_data, x_grid, y_grid, color, x_key='C_1', y_key='beam_angle'):
@@ -74,13 +74,14 @@ def _compute_pixel_positions(pts, grid_coords, axes_dim):
 #   Probability Distribution Plotting
 #
 
-def plot_distributions(pdf_dict, x, xlabel, ylabel=None, alpha=0.2, color_start=0, show_labels=True, legend_loc=None, frameon=True):
+def plot_distributions(pdf_dict, x, xlabel, ylabel=None, alpha=0.2, color_start=0, show_labels=True, legend_loc=None, frameon=True, color_idx=None):
     if ylabel is None:
         ylabel = 'Probability Density'
     fig, ax = plt.subplots()
     for i, (key, pdf_i) in enumerate(pdf_dict.items()):
-        sns.lineplot(x=x.squeeze(), y=pdf_i.squeeze(), color=_palette[color_start+i], label=key)
-        ax.fill_between(x.squeeze(), pdf_i.squeeze(), alpha=alpha, color=_palette[color_start+i]) 
+        color_i = color_start+i if color_idx is None else color_idx[i]
+        sns.lineplot(x=x.squeeze(), y=pdf_i.squeeze(), color=_palette[color_i], label=key)
+        ax.fill_between(x.squeeze(), pdf_i.squeeze(), alpha=alpha, color=_palette[color_i]) 
     if legend_loc is None:
         legend_loc = 'upper right' 
     plt.legend(loc=legend_loc)
@@ -96,11 +97,13 @@ def plot_joint_samples(joint_samples, start_colour=0, xlabel=None, ylabel=None):
         sns.scatterplot(x=vals['theta'].squeeze(), y=vals['y'].squeeze(), marker='o', 
                         edgecolor='black', label=key, color=_palette[i+start_colour])
     if xlabel is None:
-        xlabel = 'Normalised Stiffness'
+        xlabel = 'Normalised Stiffness $C_1$'
     ax.set_xlabel(xlabel)
     if ylabel is None:
-        ylabel = 'Normalised Beam Tip Displacement'
+        ylabel = 'Normalised Beam Tip Displacement $u$'
     ax.set_ylabel(ylabel)
+    plt.xlim(-0.1, 1.1)
+    plt.ylim(-0.4, 1.1)
     clean_up_plot(fig)
     return fig
 
@@ -121,12 +124,17 @@ def plot_amortised_phi(amortised_approx, y_lims, d_lims, num_y_pts, num_d_pts, p
     fig, ax = plt.subplots()
     if phi_key == 'log_chol_diag':
         phi = np.exp(phi)
-        phi_key = 'Variance'
+        phi_key = 'Posterior Covariance $\Gamma_\\theta$'
+    else:
+        phi_key = 'Posterior Mean $\mu_\\theta$'
     im = plt.imshow(phi, cmap='coolwarm', origin='lower')
-    phi_key = phi_key.capitalize()
-    _create_colourbar(im, phi, phi_key, phi_lims, num_phi_ticks, phi_ticks_dp)
+    if (phi_lims is None) and ('mean' in phi_key.lower()):
+        phi_lims = (0, 1)
+    elif phi_lims is None:
+        phi_lims = (np.min(phi), np.max(phi))
+    create_colourbar(im, phi_key, phi_lims, num_phi_ticks, phi_ticks_dp)
     set_x_and_y_ticks(ax, y_grid, d_grid, num_y_ticks, num_d_ticks, y_ticks_dp, d_ticks_dp)
-    set_x_and_y_labels(ax, x_label='Normalised Beam Tip Displacement', y_label='Normalised Stiffness')
+    set_x_and_y_labels(ax, y_label='Normalised Beam Tip Displacement $u$', x_label='Normalised Beam Angle $\omega$')
     clean_up_plot(fig)
     return fig
 
@@ -135,8 +143,8 @@ def plot_ape_landscapes(d, ape_dict):
     for i, key, ape_i in enumerate(ape_dict.items()):
         ape_i = np.array(ape_i)
         sns.lineplot(x=d.squeeze(), y=ape_i.squeeze(), label=key, color=_palette[i])
-    ax.set_xlabel('Normalised Design')
-    ax.set_ylabel('Average Posterior Entropy')
+    ax.set_xlabel('Normalised Beam Angle $\omega$')
+    ax.set_ylabel('Average Posterior Entropy (APE)')
     clean_up_plot(fig)
     return fig
 

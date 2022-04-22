@@ -12,7 +12,10 @@ def construct_true_posterior(gp, noise_cov, prior_mean, prior_cov, theta_lims=(-
     prior_icov = jnp.linalg.inv(prior_cov)
 
     def unnorm_posterior(theta, y, d):
-        y_pred = gp.predict(theta, d)
+        if hasattr(gp, 'predict'):
+            y_pred = gp.predict(theta, d)
+        else:
+            y_pred = gp(theta, d)
         unnorm_vals = -0.5*(jnp.einsum('...i,ij,...j->...', y-y_pred, noise_icov, y-y_pred) + \
                             jnp.einsum('...i,ij,...j->...', theta-prior_mean, prior_icov, theta-prior_mean))
         return jnp.exp(unnorm_vals)
