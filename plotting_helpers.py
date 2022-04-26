@@ -12,7 +12,7 @@ def plot_gp_heatmap(normC1_grid, normangle_grid, z_vector, z_label, raw_data, nu
     z_grid = z_vector.reshape(normC1_grid.shape, order='F')
     fig, ax = plt.subplots()
     z_lims = _create_z_lims(z_lims, z_grid, z_ticks_dp)
-    im = plt.imshow(z_grid, cmap='coolwarm', origin='lower', vmin=z_lims[0], vmax=z_lims[1])
+    im = plt.imshow(z_grid, cmap='coolwarm', origin='lower', vmin=z_lims[0], vmax=z_lims[1]) 
     create_colourbar(im, z_label, z_lims, num_z_ticks, z_ticks_dp)
     set_x_and_y_ticks(ax, normC1_grid, normangle_grid, num_C1_ticks, num_angle_ticks, C1_ticks_dp, angle_ticks_dp)
     set_x_and_y_labels(ax, x_label, y_label)
@@ -24,6 +24,7 @@ def create_colourbar(im, z_label, z_lims, num_z_ticks, z_ticks_dp):
     ticks = np.linspace(z_lims[0], z_lims[1], num_z_ticks+1)
     ticks = np.around(ticks, decimals=z_ticks_dp)
     cbar = plt.colorbar(im, ticks=ticks, **{'format': f'%.{z_ticks_dp}f'})
+    cbar.set_ticks(ticks)
     cbar.set_label(z_label, rotation=270, labelpad=15)
 
 def _create_z_lims(z_lims, z, ticks_dp):

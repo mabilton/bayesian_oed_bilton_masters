@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, '.')
 import plotting_helpers
 
-def construct_true_posterior(gp, noise_cov, prior_mean, prior_cov, theta_lims=(-2,2), num_int_pts=1000):
+def construct_true_posterior(gp, noise_cov, prior_mean, prior_cov, theta_lims=(-0.5,1.5), num_int_pts=1000):
     
     noise_icov = jnp.linalg.inv(noise_cov)
     prior_icov = jnp.linalg.inv(prior_cov)
