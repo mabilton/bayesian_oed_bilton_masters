@@ -7,11 +7,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 import dolfinx
-
-try:   
-    import pyvista
-except ImportError:
-    print('Warning: Unable to import Pyvista, which is required to run Notebook [2]')
+import pyvista
     
 def create_param_combos(**kwargs):
     keys = kwargs.keys()
