@@ -3,10 +3,10 @@
 ## Description
 
 This repository contains all of the code required to replicate my (Matt Bilton’s) Masters thesis results on Bayesian Optimal Experimental Design (OED). The code in this repositry depends on four Python packages which I wrote over the course of my Masters:
-1. [https://github.com/MABilton/arraytainers](`arraytainers`), which are basically dictionaries or lists of Numpy arrays which act like arrays under some circumstances (e.g. when being added together, when being acted on by a Numpy function), but which like dictionaries/list under other circumstances (e.g. when accessing an element using a key).
-2. [https://github.com/MABilton/approx_post](`approx_post`), which is used to create amortised variational inference posterior approximations.
-3. [https://github.com/MABilton/oed_toolbox](`oed_toolbox`), which just provides some simple wrapper routines to compute and optimise some common OED criteria.
-4. [https://github.com/MABilton/surrojax_gp](`surrojax_gp`), which is used to create simple Gaussian Process (GP) surogate models. 
+1. [`arraytainers`](https://github.com/MABilton/arraytainers), which are basically dictionaries or lists of Numpy arrays which act like arrays under some circumstances (e.g. when being added together, when being acted on by a Numpy function), but which like dictionaries/list under other circumstances (e.g. when accessing an element using a key).
+2. [`approx_post`](https://github.com/MABilton/approx_post), which is used to create amortised variational inference posterior approximations.
+3. [`oed_toolbox`](https://github.com/MABilton/oed_toolbox), which just provides some simple wrapper routines to compute and optimise some common OED criteria.
+4. [`surrojax_gp`](https://github.com/MABilton/surrojax_gp), which is used to create simple Gaussian Process (GP) surogate models. 
 
 ## Directory Structure
 
@@ -40,11 +40,11 @@ If you’re not interested in running the Fenics code, it’s sufficient just to
     ```
     pip install -r requirements.txt
     ```
-Importantly, since this repository uses the [Jax package](https://github.com/google/jax) (which you can read about [https://jax.readthedocs.io/en/latest/notebooks/quickstart.html](here)), you need to make sure your system is capable of installing Jax, which is described in detail [https://github.com/google/jax#installation](here). Put simply, running Jax basically requires you to use a Linux system. If you’re using a Windows-based system, we highly recommend you install Windows Subsystem for Linux (WSL), which will provide you with a light-weight version of Ubuntu within which you can run this repository’s code; instructions on how to install WSL can be found [https://docs.microsoft.com/en-us/windows/wsl/install](here).
+Importantly, since this repository uses the [Jax package](https://github.com/google/jax) (which you can read about [here](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html)), you need to make sure your system is capable of installing Jax, which is described in detail [here](https://github.com/google/jax#installation). Put simply, running Jax basically requires you to use a Linux system. If you’re using a Windows-based system, we highly recommend you install Windows Subsystem for Linux (WSL), which will provide you with a light-weight version of Ubuntu within which you can run this repository’s code; instructions on how to install WSL can be found [here](https://docs.microsoft.com/en-us/windows/wsl/install).
 
 ### Everything, Including the Fenics Code
 
-To run the Fenics code included in this repository, you’ll need to use the `dolfinx/lab` Docker image, which can be found [here](https://hub.docker.com/r/dolfinx/lab). Unfortunately, the Fenics project has a habit of regularly updating the dolfinx API (which you can read about [here]()) in a backwards incompatible manner. Consequently, we cannot guarantee that the code in the `fenics_models` folder will work with the current version of the `dolfinx/lab` image. To get around this, we’ve created our own Docker image which contains the appropriate version of the `dolfinx/lab` image to run the `fenics_models` code; this image can be found [here]( https://hub.docker.com/r/mabilton/bayesian_oed_bilton_masters). This image also contains all of the dependencies listed in the `requirements.txt` file. Although the instructions to install this Docker image can be found in the `README` of the aforementioned Docker Hub repository, we’ll also give them here:
+To run the Fenics code included in this repository, you’ll need to use the `dolfinx/lab` Docker image, which can be found [here](https://hub.docker.com/r/dolfinx/lab). Unfortunately, the Fenics project has a habit of regularly updating the dolfinx API (which you can read about [here](https://docs.fenicsproject.org/dolfinx/main/python/)) in a backwards incompatible manner. Consequently, we cannot guarantee that the code in the `fenics_models` folder will work with the current version of the `dolfinx/lab` image. To get around this, we’ve created our own Docker image which contains the appropriate version of the `dolfinx/lab` image to run the `fenics_models` code; this image can be found [here](https://hub.docker.com/r/mabilton/bayesian_oed_bilton_masters). This image also contains all of the dependencies listed in the `requirements.txt` file. Although the instructions to install this Docker image can be found in the `README` of the aforementioned Docker Hub repository, we’ll also give them here:
 1. Install Docker; instructions on how to do this can be found [here](https://docs.docker.com/desktop/#download-and-install).
 2. Clone this repository by running:
    ```
