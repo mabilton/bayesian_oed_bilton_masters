@@ -1,2 +1,7 @@
 *.ipynb_checkpoints*
 *__pycache__
+.cache
+.config
+.ipython
+.jupyter
+.local*

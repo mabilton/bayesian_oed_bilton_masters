@@ -6,7 +6,6 @@ import itertools
 import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
-import dolfinx
 import pyvista
     
 def create_param_combos(**kwargs):

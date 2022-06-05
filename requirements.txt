@@ -5,6 +5,7 @@ numpy==1.*
 scipy==1.*
 matplotlib==3.*
 seaborn==0.*
+tetridiv @ git+https://github.com/MABilton/tetridiv@v0.0.1
 arraytainers @ git+https://github.com/MABilton/arraytainers@v0.0.0
 surrojax_gp @ git+https://github.com/MABilton/surrojax_gp@v0.0.0
 oed_toolbox @ git+https://github.com/MABilton/oed_toolbox@v0.0.0
