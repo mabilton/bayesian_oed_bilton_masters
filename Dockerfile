@@ -6,6 +6,9 @@ RUN pip install jax==0.* \
                 scipy==1.* \
                 matplotlib==3.* \ 
                 seaborn==0.* \
+                panel==0.* \
+                pyacvd==0.* \
+                tetgen==0.* \
                 git+https://github.com/MABilton/tetridiv@v0.0.1 \
                 git+https://github.com/MABilton/arraytainers@v0.0.0 \ 
                 git+https://github.com/MABilton/surrojax_gp@v0.0.0 \
