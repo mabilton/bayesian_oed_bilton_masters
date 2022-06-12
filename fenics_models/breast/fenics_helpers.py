@@ -73,6 +73,12 @@ def simulate_linear_breast(mesh, y_rot, x_rot, C_1, kappa, density, g, elem_orde
 #   Mesh Deformation Post-Processing Methods
 #
 
+def compute_deformation(u, mesh):
+    grid = mesh.geometry.x
+    points_on_processors, cells = utils.get_dolfinx_mesh_cells_at_query_points(grid, mesh)
+    u_def = u.eval(points_on_processors, cells)
+    return u_def
+
 def compute_pre_and_postdeformation_volume(u, mesh, quad_order=4):
     ndim = mesh.geometry.x.shape[1]
     I = ufl.Identity(ndim)
