@@ -11,8 +11,8 @@ This repository contains all of the code required to replicate my (Matt Bilton�
 ## Directory Structure
 
 There are five items of note within the main repository
-1. Folders named `chapter_i`, each of which contains the code and figures corresponding to Chapter `i` of the thesis
-2. The `fenics_models` folder, which contains all of the code which. Unlike the `chapter_i` folders, the code in this folder **must be run in the `dolfinx/lab` Docker container**; we’ll explain how to do this shortly.
+1. Folders named `chapter_i`, each of which contains the code and figures corresponding to Chapter `i` of the thesis.
+2. The `beam` and `breast` folder, which contains all of the code required to run the Dolfinx hyperelasticity simulations for the cantilever beam and breast. Unlike the `chapter_i` folders, the code in this folder **must be run in the `dolfinx/lab` Docker container**; we’ll explain how to do this shortly.
 3. `computation_helpers.py`, which containers helper functions for computations repeated across different notebooks (e.g. computing approximate posterior distributions through simple quadrature)
 4. `plotting_helpers.py`, which contains helper functions to produce plots repeated across different notebooks (e.g. plotting multiple probability distributions against one another)
 5. `requirements.txt`, which contains a list of the dependencies one must install to run the code in this repository. Importantly, these do not contain the dependencies required to run the code in the `fenics_models` folder: once again, the code in this folder must be run in the dolfinx Docker container.
