@@ -1,12 +1,12 @@
 # Install using pip install -r requirements.txt
-jax==0.*
-jaxlib==0.*
-numpy==1.*
-scipy==1.*
-matplotlib==3.*
-seaborn==0.*
+jax>=0.2,<=0.2.25
+jaxlib~=0.1,<=0.1.75
+numpy~=1.20
+scipy~=1.7
+matplotlib~=3.4
+seaborn~=0.11
 tetridiv @ git+https://github.com/MABilton/tetridiv@v0.0.1
 arraytainers @ git+https://github.com/MABilton/arraytainers@v0.0.0
-surrojax_gp @ git+https://github.com/MABilton/surrojax_gp@v0.0.0
+surrojax_gp @ git+https://github.com/MABilton/surrojax_gp@v0.0.1
 oed_toolbox @ git+https://github.com/MABilton/oed_toolbox@v0.0.0
 approx_post @ git+https://github.com/MABilton/approx_post@v0.0.0
