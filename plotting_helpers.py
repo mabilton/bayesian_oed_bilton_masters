@@ -134,6 +134,7 @@ def plot_amortised_phi(amortised_approx, y_lims, d_lims, num_y_pts, num_d_pts, p
     elif phi_lims is None:
         phi_lims = (np.min(phi), np.max(phi))
     create_colourbar(im, phi_key, phi_lims, num_phi_ticks, phi_ticks_dp)
+    plt.clim(phi_lims)
     set_x_and_y_ticks(ax, y_grid, d_grid, num_y_ticks, num_d_ticks, y_ticks_dp, d_ticks_dp)
     set_x_and_y_labels(ax, y_label='Normalised Beam Tip Displacement $u$', x_label='Normalised Beam Angle $\omega$')
     clean_up_plot(fig)
