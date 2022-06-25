@@ -20,7 +20,7 @@ def create_param_combos(**kwargs):
 #   Visualisation Methods
 #
 
-def plot_deformation(u, mesh, beam_angle, cam_pos='xz', window_size=(960,480), rot_x=None, 
+def plot_deformation(u, mesh, beam_angle, line_width=1, show_wiremesh=True, cam_pos='xz', window_size=(960,480), rot_x=None, 
                      sargs=None, clim=None, n_labels=5, label_decimals=0, zoom=1, deform_factor=1):
     
     if sargs is None:
@@ -42,7 +42,8 @@ def plot_deformation(u, mesh, beam_angle, cam_pos='xz', window_size=(960,480), r
     pyvista.start_xvfb()
     p = pyvista.Plotter()
     # Show undeformed mesh as wireframe:
-    actor_0 = p.add_mesh(grid, style="wireframe", color="k")
+    if show_wiremesh:
+        actor_0 = p.add_mesh(grid, style="wireframe", color="k", line_width=line_width)
     # Plot deformed mesh:
     warped = grid.warp_by_vector("Deformation / mm", factor=deform_factor)
     actor_1 = p.add_mesh(warped, clim=clim, scalar_bar_args=sargs)
