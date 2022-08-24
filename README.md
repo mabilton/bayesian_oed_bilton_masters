@@ -19,7 +19,7 @@ There are five items of note within the main repository
 
 Within each of the `chapter_i` folders, as well as within the `fenics_models` folder, one can find:
 1. A series of Jupyter notebooks along with the the `json` data produced by those notebooks. Each corresponds to a particular piece of analysis performed within the chapter, and are numbered to indicated the order in which they were initially run. Although the notebooks have a definite ordering to them, they don’t need to be re-run in this same order since the outputs produced by each notebook (which may be required for other notebooks to run) have already been saved. For example, notebook `[3]` in the `chapter_5` folder requires access to the `nonlinear_beam_gp.json` file produced by notebook `[4]` in the `chapter_4` folder; this data, however, has already been saved within the `chapter_4` folder.
-2. A `figs` folder, which contains all of the raw images produced by the Jupyter notebooks in that folder, along with figures created by `combining’ these raw images, and `hand-drawn’ images created using Inkscape. The figures in these `fig` folders are organised into further subcategory folders.
+2. A `figs` folder, which contains all of the raw images produced by the Jupyter notebooks in that folder, along with figures created by 'combining' these raw images, and 'hand-drawn' images created using Inkscape. The figures in these `fig` folders are organised into further subcategory folders.
 
 In addition to what was previously mentioned, the `fenics_models` folder also contains:
 1. `fenics_helpers.py`, which defines a series of helper functions used by the notebooks in this folder, 
